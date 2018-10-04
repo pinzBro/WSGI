@@ -5,6 +5,18 @@ import os
 import commands
 import requests
 import json
+import functools
+import time
+import sys
+
+def add_time(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        now_time = time.strftime('%Y-%m-%d %H:%M:%S')
+        response_value = func(*args, **kwargs)
+        response_value.insert(0, now_time)
+        return response_value
+    return wrapper
 
 def application(environ, start_response):
     response_body = get_service_status()
@@ -13,6 +25,7 @@ def application(environ, start_response):
     start_response(status, response_heasers)
     return response_body
 
+@add_time
 def get_service_status():
     os.environ['OS_USERNAME'] = 'admin'
     os.environ['OS_PASSWORD'] = '123456'

@@ -2,6 +2,7 @@
 #_*_ coding:utf-8 _*_
 
 import socket
+import logging
 import sys
 import StringIO
 from app import application
@@ -25,11 +26,12 @@ class WSGIServer(object):
 
     def serve_forever(self):
         while True:
-            self.client_connection, client_address = self.listen_socket.accept()
+            self.client_connection, self.client_address = self.listen_socket.accept()
             self.request_data = self.client_connection.recv(1024)
             env = self.get_environ()
             app_data = self.application(env, self.start_response)
             self.finish_response(app_data)
+
 
     def get_environ(self):
         env = {
@@ -62,7 +64,18 @@ class WSGIServer(object):
                 response += '{0}\r\n'.format(data)
             self.client_connection.sendall(response)
         finally:
+            logger = logging.getLogger('serverlogger')
+            streamHandler = logging.StreamHandler()
+            streamHandler.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            streamHandler.setFormatter(formatter)
+            logger.addHandler(streamHandler)
+            if self.request_data:
+                logger.warn('Get request from %s' % self.client_address[0])
+            if app_data:
+                logger.warn('Response a message for service status.')
             self.client_connection.close()
+
 
 if __name__ == '__main__':
     port = 8888
@@ -78,3 +91,4 @@ if __name__ == '__main__':
     httpd = generate_server(("172.16.53.249", int(port)), application)
     print("WSGIServer:Serving HTTP on port {0}...".format(port))
     httpd.serve_forever()
+

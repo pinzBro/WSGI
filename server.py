@@ -5,7 +5,9 @@ import socket
 import logging
 import sys
 import StringIO
+import requests
 from app import application
+from middleware import Middle
 
 class WSGIServer(object):
     address_family = socket.AF_INET
@@ -27,14 +29,19 @@ class WSGIServer(object):
     def serve_forever(self):
         while True:
             self.client_connection, self.client_address = self.listen_socket.accept()
-            self.request_data = self.client_connection.recv(1024)
-            env = self.get_environ()
-            app_data = self.application(env, self.start_response)
+            self.request_data = self.client_connection.recv(1024) # get client message
+            self.request_lines = self.request_data.splitlines() # return a list
+            self.request_dict = {'Path': self.request_lines[0]} #
+            for item in self.request_lines[1:]:
+                if ':' in item:
+                    self.request_dict[item.split(':')[0]] = item.split(':')[1]
+            self.request_method, self.path, self.request_version = self.request_dict['Path'].split()
+            environ = self.get_environ()
+            app_data = self.application(environ, self.start_response)
             self.finish_response(app_data)
 
-
     def get_environ(self):
-        env = {
+        environ = {
             'wsgi.version': (1, 0),
             'wsgi.url_scheme': 'http',
             'wsgi.input': StringIO.StringIO(self.request_data),
@@ -42,17 +49,17 @@ class WSGIServer(object):
             'wsgi.multithread': False,
             'wsgi.multiprocess': False,
             'wsgi.run_once': False,
-#            'REQUEST_METHOD': self.request_method,
-#            'PATH_INFO': self.path,
+            'REQUEST_METHOD': self.request_method,
+            'PATH_INFO': self.path,
             'SERVER_NAME': self.host,
             'SERVER_PORT': self.server_port,
-#            'USER_AGENT': self.request_dict.get('User-Agent')
+            'USER_AGENT': self.request_dict['User-Agent']
         }
-        return env
+        return environ
 
     def start_response(self, status, response_headers):
-        self.headers = response_headers
         self.status = status
+        self.headers = response_headers
 
     def finish_response(self, app_data):
         try:
@@ -84,10 +91,11 @@ if __name__ == '__main__':
         server.set_app(application)
         return server
 
-    app_path = sys.argv[1]
-    module, application = app_path.split('.')
-    module = __import__(module)
-    application = getattr(module, application)
+    # app_path = sys.argv[1]
+    # module, application = app_path.split('.')
+    # module = __import__(module)
+    # application = getattr(module, application)
+    application = Middle(application)
     httpd = generate_server(("172.16.53.249", int(port)), application)
     print("WSGIServer:Serving HTTP on port {0}...".format(port))
     httpd.serve_forever()

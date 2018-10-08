@@ -21,7 +21,7 @@ def add_time(func):
 def application(environ, start_response):
     response_body = get_service_status()
     status = '200 OK'
-    response_heasers = [('Content-Type',  'text/plain')]
+    response_heasers = [('Content-Type', 'text/plain')]
     start_response(status, response_heasers)
     return response_body
 
